@@ -9,7 +9,7 @@ export default function App() {
       <Text>{titulo}</Text>
       <Text style={{margin: 20}}>{titulo_padrao}</Text>
       <Text style={styles.text}>AAA</Text>
-      <Button title="Clique Aqui" />
+      <Button title="Clique Aquii" />
       <StatusBar style="auto" />
     </View>
   );
