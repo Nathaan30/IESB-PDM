@@ -1,31 +1,43 @@
-import { StyleSheet, Text, TouchableHighlight } from "react-native";
-import { colors } from "../constants/colors";
+import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { BATMAN } from "../constants/batmanTheme";
 
-export default function Button({ children, onPress }) {
+export default function Button({ children, onPress, disabled }) {
   return (
-    <TouchableHighlight 
-      style={style.background} 
+    <TouchableOpacity
+      activeOpacity={0.85}
       onPress={onPress}
-      underlayColor="#2a9665" 
+      disabled={disabled}
+      style={[styles.button, disabled && styles.disabled]}
     >
-      <Text style={style.text}>{children}</Text>
-    </TouchableHighlight>
+      <Text style={styles.text}>{children}</Text>
+    </TouchableOpacity>
   );
 }
 
-const style = StyleSheet.create({
-  background: {
-    display: "flex",
+const styles = StyleSheet.create({
+  button: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: BATMAN.yellow,
     alignItems: "center",
     justifyContent: "center",
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    marginTop: 12,
+    borderWidth: 1,
+    borderColor: BATMAN.yellowSoft,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  disabled: {
+    opacity: 0.6,
   },
   text: {
-    color: colors.primaryContrast,
-    fontSize: 18,
-    fontWeight: "600",
+    color: BATMAN.background,
+    fontSize: 16,
+    fontWeight: "900",
   },
 });

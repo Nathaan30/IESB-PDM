@@ -1,138 +1,340 @@
-import { Text, View, ScrollView, TextInput, Alert, StyleSheet, TouchableOpacity, Platform } from "react-native";
-import { useState, useContext } from "react";
-import RNDateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useContext, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-import { globalStyles } from "../../styles/globalStyles";
-import { categories } from "../../constants/categories";
-import { colors } from "../../constants/colors";
 import Button from "../../components/Button";
+import { BATMAN } from "../../constants/batmanTheme";
 import { MoneyContext } from "../../contexts/GlobalState";
 
-export default function AddTransactions() {
-  const initialForm = {
+function getTodayDateString() {
+  const today = new Date();
+
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function createInitialForm(categoryId = "") {
+  return {
     description: "",
-    value: 0,
-    date: new Date(),
-    category: "Renda",
+    value: "",
+    date: getTodayDateString(),
+    categoryId,
   };
+}
 
-  const [form, setForm] = useState(initialForm);
-  const [showPicker, setShowPicker] = useState(false);
-  
-  const [transactions, setTransactions] = useContext(MoneyContext);
+function parseMoneyValue(value) {
+  if (!value) return 0;
 
-  const setAsyncStorage = async (data) => {
-    try {
-      await AsyncStorage.setItem("transactions", JSON.stringify(data));
-    } catch (e) {
-      console.log(e);
+  const normalizedValue = value
+    .replace("R$", "")
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .trim();
+
+  const numberValue = Number(normalizedValue);
+
+  return Number.isNaN(numberValue) ? 0 : numberValue;
+}
+
+export default function AddTransactions() {
+  const { categories, loading, error, refresh, addTransaction } =
+    useContext(MoneyContext);
+
+  const [form, setForm] = useState(createInitialForm());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!form.categoryId && categories.length > 0) {
+      const incomeCategory = categories.find((category) => category.isIncome);
+      const defaultCategory = incomeCategory ?? categories[0];
+
+      setForm((currentForm) => ({
+        ...currentForm,
+        categoryId: defaultCategory.id,
+      }));
     }
-  };
+  }, [categories, form.categoryId]);
 
-  const addTransaction = async () => {
-    if (!form.description || form.value === 0) {
-      Alert.alert("Erro", "Preencha a descrição e o valor.");
+  async function handleAddTransaction() {
+    if (saving) return;
+
+    const numericValue = parseMoneyValue(form.value);
+
+    if (!form.description.trim()) {
+      Alert.alert("Erro", "Informe uma descrição.");
       return;
     }
 
-    const newTransaction = { id: transactions.length + 1, ...form };
-    const updatedTransactions = [...transactions, newTransaction];
-
-    setTransactions(updatedTransactions); 
-    setForm(initialForm);
-    await setAsyncStorage(updatedTransactions); 
-
-    Alert.alert("Sucesso!", "Transação adicionada e salva!");
-  };
-
-  const handleCurrencyChange = (text) => {
-    const formattedValue = text.replace(/\D/g, "");
-    const numberValue = formattedValue ? parseFloat(formattedValue) / 100 : 0;
-    setForm({ ...form, value: numberValue });
-  };
-
-  const handleDateChange = (_, selectDate) => {
-    setShowPicker(false);
-    if (selectDate) {
-      setForm({ ...form, date: selectDate });
+    if (!numericValue || numericValue <= 0) {
+      Alert.alert("Erro", "Informe um valor maior que zero.");
+      return;
     }
-  };
+
+    if (!form.date.trim()) {
+      Alert.alert("Erro", "Informe uma data.");
+      return;
+    }
+
+    if (!form.categoryId) {
+      Alert.alert("Erro", "Selecione uma categoria.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await addTransaction({
+        description: form.description.trim(),
+        value: numericValue,
+        date: form.date,
+        categoryId: form.categoryId,
+      });
+
+      setForm(createInitialForm(form.categoryId));
+
+      Alert.alert("Sucesso!", "Transação adicionada com sucesso!");
+    } catch (err) {
+      console.log(err);
+      Alert.alert("Erro", "Não foi possível adicionar a transação.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={BATMAN.yellow} />
+        <Text style={styles.loadingText}>Carregando categorias...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorTitle}>Erro ao carregar dados</Text>
+        <Text style={styles.errorText}>{error}</Text>
+
+        <Button onPress={refresh}>Tentar novamente</Button>
+      </View>
+    );
+  }
 
   return (
-    <View style={globalStyles.screenContainer}>
-      <ScrollView contentContainerStyle={globalStyles.content}>
-        <View style={styles.form}>
+    <KeyboardAvoidingView style={styles.screen} behavior="padding">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.heroCard}>
+          <Text style={styles.heroMini}>GOTHAM REGISTER</Text>
+          <Text style={styles.heroTitle}>Nova transação</Text>
+          <Text style={styles.heroSubtitle}>
+            Cadastre receitas e despesas direto no banco de dados.
+          </Text>
+        </View>
+
+        <View style={styles.formCard}>
           <View>
-            <Text style={globalStyles.inputLabel}>Descrição</Text>
+            <Text style={styles.label}>Descrição</Text>
+
             <TextInput
               value={form.description}
-              onChangeText={(text) => setForm({ ...form, description: text })}
-              style={globalStyles.input}
-              placeholder="Ex: Aluguel"
+              onChangeText={(text) =>
+                setForm({ ...form, description: text })
+              }
+              placeholder="Ex: Salário, mercado, lanche..."
+              placeholderTextColor={BATMAN.textSecondary}
+              style={styles.input}
             />
           </View>
 
           <View>
-            <Text style={globalStyles.inputLabel}>Valor</Text>
+            <Text style={styles.label}>Valor</Text>
+
             <TextInput
-              value={form.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-              onChangeText={handleCurrencyChange}
+              value={form.value}
+              onChangeText={(text) => setForm({ ...form, value: text })}
+              placeholder="Ex: 2500,50"
+              placeholderTextColor={BATMAN.textSecondary}
               keyboardType="numeric"
-              style={globalStyles.input}
+              style={styles.input}
             />
+
+            <Text style={styles.helperText}>
+              Use vírgula ou ponto para centavos. Ex: 3500,50
+            </Text>
           </View>
 
           <View>
-            <Text style={globalStyles.inputLabel}>Data</Text>
-            <TouchableOpacity onPress={() => setShowPicker(true)}>
-              <TextInput
-                value={form.date.toLocaleDateString("pt-BR")}
-                style={globalStyles.input}
-                editable={false}
-                pointerEvents="none"
-              />
-            </TouchableOpacity>
+            <Text style={styles.label}>Data</Text>
 
-            {showPicker && (
-              <RNDateTimePicker
-                mode="date"
-                display={Platform.OS === "ios" ? "inline" : "default"}
-                value={form.date}
-                onChange={handleDateChange}
-              />
-            )}
+            <TextInput
+              value={form.date}
+              onChangeText={(text) => setForm({ ...form, date: text })}
+              placeholder="AAAA-MM-DD"
+              placeholderTextColor={BATMAN.textSecondary}
+              style={styles.input}
+            />
+
+            <Text style={styles.helperText}>Formato: 2026-04-29</Text>
           </View>
 
           <View>
-            <Text style={globalStyles.inputLabel}>Categoria</Text>
-            <View style={styles.picker}>
+            <Text style={styles.label}>Categoria</Text>
+
+            <View style={styles.pickerContainer}>
               <Picker
-                selectedValue={form.category}
-                onValueChange={(itemValue) => setForm({ ...form, category: itemValue })}
+                selectedValue={form.categoryId}
+                onValueChange={(itemValue) =>
+                  setForm({ ...form, categoryId: itemValue })
+                }
+                style={styles.picker}
               >
-                <Picker.Item label={categories.income.displayName} value={categories.income.name} />
-                <Picker.Item label={categories.food.displayName} value={categories.food.name} />
-                <Picker.Item label={categories.house.displayName} value={categories.house.name} />
-                <Picker.Item label={categories.education.displayName} value={categories.education.name} />
-                <Picker.Item label={categories.travel.displayName} value={categories.travel.name} />
+                <Picker.Item label="Selecione uma categoria" value="" />
+
+                {categories.map((category) => (
+                  <Picker.Item
+                    key={category.id}
+                    label={category.displayName}
+                    value={category.id}
+                  />
+                ))}
               </Picker>
             </View>
           </View>
         </View>
 
-        <Button onPress={addTransaction}>Adicionar</Button>
+        <Button onPress={handleAddTransaction}>
+          {saving ? "Salvando..." : "Adicionar transação"}
+        </Button>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  form: { gap: 12, marginBottom: 40, marginTop: 10 },
+  screen: {
+    flex: 1,
+    backgroundColor: BATMAN.background,
+  },
+  content: {
+    padding: 18,
+    paddingBottom: 36,
+  },
+  centerContainer: {
+    flex: 1,
+    backgroundColor: BATMAN.background,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  loadingText: {
+    color: BATMAN.textSecondary,
+    fontSize: 14,
+    marginTop: 12,
+  },
+  errorTitle: {
+    color: BATMAN.yellow,
+    fontSize: 22,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  errorText: {
+    color: BATMAN.textSecondary,
+    fontSize: 15,
+    textAlign: "center",
+    marginBottom: 18,
+  },
+  heroCard: {
+    backgroundColor: BATMAN.surface,
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: BATMAN.border,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  heroMini: {
+    color: BATMAN.yellow,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  heroTitle: {
+    color: BATMAN.textPrimary,
+    fontSize: 26,
+    fontWeight: "900",
+  },
+  heroSubtitle: {
+    color: BATMAN.textSecondary,
+    fontSize: 14,
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  formCard: {
+    backgroundColor: BATMAN.surface,
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: BATMAN.border,
+    marginBottom: 18,
+    gap: 16,
+  },
+  label: {
+    color: BATMAN.yellow,
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 7,
+  },
+  input: {
+    height: 48,
+    borderColor: BATMAN.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: BATMAN.surface2,
+    color: BATMAN.textPrimary,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  helperText: {
+    color: BATMAN.textSecondary,
+    fontSize: 12,
+    marginTop: 6,
+  },
+  pickerContainer: {
+    height: 48,
+    borderColor: BATMAN.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: BATMAN.surface2,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
   picker: {
-    display: "flex", justifyContent: "center", height: 44,
-    borderColor: colors.secondaryText, borderWidth: 1, borderRadius: 8,
-    backgroundColor: colors.primaryContrast, flexGrow: 1,
+    color: BATMAN.textPrimary,
+    backgroundColor: BATMAN.surface2,
   },
 });

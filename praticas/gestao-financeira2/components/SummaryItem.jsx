@@ -1,25 +1,32 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
-import CategoryItem from "./CategoryItem";
-import { categories } from "../constants/categories";
-import { globalStyles } from "../styles/globalStyles";
+import { BATMAN } from "../constants/batmanTheme";
 
 export default function SummaryItem({ category, value }) {
-  const categoryConfig = categories[category] ?? categories.food;
-
-  const valueStyle =
-    category === categories.income.name
-      ? globalStyles.positiveText
-      : globalStyles.negativeText;
+  const valueStyle = category.isIncome ? BATMAN.green : BATMAN.red;
 
   return (
-    <View style={styles.itemContainer}>
-      <CategoryItem category={category} />
+    <View style={styles.card}>
+      <View style={styles.leftAccent} />
+
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: category.background ?? BATMAN.yellow },
+        ]}
+      >
+        <MaterialIcons
+          name={category.icon ?? "category"}
+          size={24}
+          color={BATMAN.background}
+        />
+      </View>
+
       <View style={styles.textContainer}>
-        <Text style={globalStyles.primaryText}>
-          {categoryConfig.displayName}
-        </Text>
-        <Text style={valueStyle}>
-          {value.toLocaleString("pt-BR", {
+        <Text style={styles.categoryName}>{category.displayName}</Text>
+
+        <Text style={[styles.value, { color: valueStyle }]}>
+          {Number(value).toLocaleString("pt-BR", {
             style: "currency",
             currency: "BRL",
           })}
@@ -30,17 +37,50 @@ export default function SummaryItem({ category, value }) {
 }
 
 const styles = StyleSheet.create({
-  itemContainer: {
-    display: "flex",
+  card: {
     flexDirection: "row",
     alignItems: "center",
-    paddingBottom: 4,
+    backgroundColor: BATMAN.surface,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: BATMAN.border,
+    overflow: "hidden",
+  },
+  leftAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: BATMAN.yellow,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: BATMAN.background,
   },
   textContainer: {
-    display: "flex",
     flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginLeft: 12,
+    alignItems: "center",
+    gap: 12,
+  },
+  categoryName: {
+    flex: 1,
+    color: BATMAN.textPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  value: {
+    fontSize: 15,
+    fontWeight: "900",
   },
 });
